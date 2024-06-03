@@ -7,45 +7,39 @@ $name = isset($_SESSION['fullname']) ? htmlspecialchars($_SESSION['fullname']) :
 $phoneNumber = isset($_SESSION['sdt']) ? htmlspecialchars($_SESSION['sdt']) : "";
 $diachi = isset($_SESSION['diachi']) ? htmlspecialchars($_SESSION['diachi']) : "";
 $email = isset($_SESSION['email']) ? htmlspecialchars($_SESSION['email']) : "";
-
+$selectedProducts = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
 // Kiểm tra nếu giỏ hàng không tồn tại hoặc rỗng
-if (!isset($_SESSION['cart']) || !is_array($_SESSION['cart']) || empty($_SESSION['cart'])) {
+if (empty($selectedProducts)) {
     echo "Giỏ hàng của bạn hiện đang trống.";
     exit();
 }
 
-// Lấy danh sách các sản phẩm được chọn từ session
-$selectedProducts = isset($_SESSION['selected_products']) ? $_SESSION['selected_products'] : [];
-
-if (empty($selectedProducts)) {
-    echo "Bạn chưa chọn sản phẩm nào để thanh toán.";
-    exit();
-}
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    if (isset($_POST['selected_products'])) {
-        $selected_products = json_decode($_POST['selected_products'], true);
-        $products_to_checkout = array();
+   if (isset($_POST['selected_products']) && is_string($_POST['selected_products'])) {
+    $selected_products = json_decode($_POST['selected_products'], true);
+    $products_to_checkout = array();
 
-        foreach ($selected_products as $key) {
-            if (isset($_SESSION['selected_products'][$key])) {
-                $products_to_checkout[$key] = $_SESSION['selected_products'][$key];
-            }
+    foreach ($selected_products as $key) {
+        if (isset($_SESSION['selected_products'][$key])) {
+            $products_to_checkout[$key] = $_SESSION['selected_products'][$key];
         }
+    }
 
         // Thực hiện xử lý thanh toán với $products_to_checkout
         // ...
     } else {
-        echo "Không có sản phẩm nào được chọn để thanh toán.";
+        echo "Không có sản phẩm nào được chọn để thanh toán hoặc dữ liệu không hợp lệ.";
     }
 } else {
     echo "Phương thức không hợp lệ.";
 }
-// Tính tổng tiền
 $totalPrice = 0;
-foreach ($selectedProducts as $product) {
+foreach ($products_to_checkout as $product) {
     $totalPrice += $product['Gia'] * $product['SoLuong'];
 }
 
+
+// Tính phí vận chuyển dựa trên tổng tiền
 if ($totalPrice < 1000) {
     $shippingFee = 30;
 } elseif ($totalPrice < 5000) {
@@ -55,6 +49,7 @@ if ($totalPrice < 1000) {
 } else {
     $shippingFee = 100;
 }
+
 
 // Xử lý đặt hàng khi nhấn nút "Đặt hàng"
 $error_message = "";
@@ -170,7 +165,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['place_order'])) {
 
                 <div class="wp-content2-content">
                     <?php
-                    foreach ($selectedProducts as $product) {
+                    foreach ($products_to_checkout as $product) {
                         $formattedPrice = number_format($product['Gia'], 3, '.', '.') . "đ";
                         $thanhTien = $product['SoLuong'] * $product['Gia'];
                         $formattedTotalPrice = number_format($thanhTien, 3, '.', '.') . "đ";
@@ -239,21 +234,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['place_order'])) {
                         </div>
                         <!-- Form submission to processing page -->
                         <form id="paymentForm" action="" method="POST">
-                            <?php
-                            // Lặp qua các sản phẩm trong giỏ hàng để tạo các trường ẩn
-                            foreach ($selectedProducts as $product) {
-                                echo "<input type='hidden' name='selected_products[]' value='" . htmlspecialchars($product['MaSanPham'], ENT_QUOTES, 'UTF-8') . "'>";
-                                echo "<input type='hidden' name='selected_images[]' value='" . htmlspecialchars($product['HinhAnh'], ENT_QUOTES, 'UTF-8') . "'>"; // Thêm ảnh
-                                echo "<input type='hidden' name='selected_sizes[]' value='" . htmlspecialchars($product['Size'], ENT_QUOTES, 'UTF-8') . "'>"; // Thêm size
-                            }
-                            ?>
-                            <input type="hidden" name="new_name" value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>">
-                            <input type="hidden" name="new_phone" value="<?php echo htmlspecialchars($phoneNumber, ENT_QUOTES, 'UTF-8'); ?>">
-                            <input type="hidden" name="new_address" value="<?php echo htmlspecialchars($address, ENT_QUOTES, 'UTF-8'); ?>">
-                            <input type="hidden" name="total_price" value="<?php echo $totalPrice; ?>">
-                            <input type="hidden" name="shipping_fee" value="<?php echo $shippingFee; ?>">
-                            <button class="btn-dathang" type="submit" name="place_order">Đặt hàng</button>
-                        </form>
+    <?php foreach ($selectedProducts as $product): ?>
+        <?php if (isset($_SESSION['selected_products'][$product['MaSanPham']])): ?>
+            <input type="hidden" name="selected_products[]" value="<?php echo htmlspecialchars($product['MaSanPham'], ENT_QUOTES, 'UTF-8'); ?>">
+            <input type="hidden" name="selected_images[]" value="<?php echo htmlspecialchars($product['HinhAnh'], ENT_QUOTES, 'UTF-8'); ?>">
+            <input type="hidden" name="selected_sizes[]" value="<?php echo htmlspecialchars($product['Size'], ENT_QUOTES, 'UTF-8'); ?>">
+        <?php endif; ?>
+    <?php endforeach; ?>
+    <input type="hidden" name="new_name" value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>">
+    <input type="hidden" name="new_phone" value="<?php echo htmlspecialchars($phoneNumber, ENT_QUOTES, 'UTF-8'); ?>">
+    <input type="hidden" name="new_address" value="<?php echo htmlspecialchars($address, ENT_QUOTES, 'UTF-8'); ?>">
+    <input type="hidden" name="total_price" value="<?php echo $totalPrice; ?>">
+    <input type="hidden" name="shipping_fee" value="<?php echo $shippingFee; ?>">
+    <button class="btn-dathang" type="submit" name="place_order">Đặt hàng</button>
+</form>
 
 
                     </div>
