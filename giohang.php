@@ -237,8 +237,13 @@ function addToCart(maSanPham, tenSanPham, gia, hinhAnh) {
             alert('Sản phẩm đã được thêm vào giỏ hàng');
             // Cập nhật biểu tượng giỏ hàng
             updateCartIconQuantity();
-            // Chuyển hướng người dùng đến trang giỏ hàng sau khi thêm vào giỏ hàng thành công
-            window.location.href = 'giohang.php';
+            // Thêm input ẩn vào form và submit để chuyển hướng người dùng đến trang thanh toán
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_product';
+            input.value = maSanPham + '_' + size;
+            document.getElementById('checkout-form').appendChild(input);
+            document.getElementById('checkout-form').submit();
         } else {
             alert('Đã có lỗi xảy ra khi thêm sản phẩm vào giỏ hàng');
         }
@@ -247,6 +252,7 @@ function addToCart(maSanPham, tenSanPham, gia, hinhAnh) {
         console.error('Error:', error);
     });
 }
+
 
 function removeFromCart(key) {
     const [maSanPham, size] = key.split('_');
