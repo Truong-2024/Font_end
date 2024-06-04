@@ -200,7 +200,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['place_order'])) {
                         <div class="title-phuongthucthanhtoan"><p>Phương thức thanh toán</p></div>
                         <div class="radio-phuongthucthanhtoan">
                                 <?php
-                                foreach ($selectedProducts as $product) {
+                                foreach ($products_to_checkout as $produc) {
                                     echo "<input type='hidden' name='selected_products[]' value='" . htmlspecialchars($product['MaSanPham'], ENT_QUOTES, 'UTF-8') . "'>";
                                 }
                                 ?>
@@ -234,22 +234,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['place_order'])) {
                         </div>
                         <!-- Form submission to processing page -->
                         <form id="paymentForm" action="" method="POST">
-    <?php foreach ($selectedProducts as $product): ?>
-        <?php if (isset($_SESSION['selected_products'][$product['MaSanPham']])): ?>
-            <input type="hidden" name="selected_products[]" value="<?php echo htmlspecialchars($product['MaSanPham'], ENT_QUOTES, 'UTF-8'); ?>">
-            <input type="hidden" name="selected_images[]" value="<?php echo htmlspecialchars($product['HinhAnh'], ENT_QUOTES, 'UTF-8'); ?>">
-            <input type="hidden" name="selected_sizes[]" value="<?php echo htmlspecialchars($product['Size'], ENT_QUOTES, 'UTF-8'); ?>">
-        <?php endif; ?>
-    <?php endforeach; ?>
-    <input type="hidden" name="new_name" value="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>">
-    <input type="hidden" name="new_phone" value="<?php echo htmlspecialchars($phoneNumber, ENT_QUOTES, 'UTF-8'); ?>">
-    <input type="hidden" name="new_address" value="<?php echo htmlspecialchars($address, ENT_QUOTES, 'UTF-8'); ?>">
-    <input type="hidden" name="total_price" value="<?php echo $totalPrice; ?>">
-    <input type="hidden" name="shipping_fee" value="<?php echo $shippingFee; ?>">
-    <button class="btn-dathang" type="submit" name="place_order">Đặt hàng</button>
-</form>
-
-
+                            <button class="btn-dathang" type="submit" name="place_order">Đặt hàng</button>
+                        </form>
                     </div>
                 </div>
             </div>
