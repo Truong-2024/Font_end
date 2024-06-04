@@ -471,7 +471,6 @@ document.addEventListener("DOMContentLoaded", function() {
                 echo "</tr>";
             }
         ?>
-
                                 </tbody>
                                 <tfoot>
                                     <tr>
