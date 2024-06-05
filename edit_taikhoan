@@ -1,0 +1,57 @@
+<?php
+session_start();
+
+// Kiểm tra xem người dùng đã đăng nhập hay chưa
+if (!isset($_SESSION['email'])) {
+    die("Bạn cần đăng nhập để thực hiện chức năng này.");
+}
+
+// Kiểm tra xem form đã được gửi đi hay chưa
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['profile_image'])) {
+    $target_dir = "uploads/"; // Thư mục lưu ảnh
+    $target_file = $target_dir . basename($_FILES["profile_image"]["name"]);
+    $uploadOk = 1;
+    $imageFileType = strtolower(pathinfo($target_file, PATHINFO_EXTENSION));
+
+    // Kiểm tra kích thước file
+    if ($_FILES["profile_image"]["size"] > 1048576) { // 1MB
+        echo "Dung lượng file vượt quá 1 MB.";
+        $uploadOk = 0;
+    }
+
+    // Kiểm tra định dạng file
+    if ($imageFileType != "jpg" && $imageFileType != "jpeg" && $imageFileType != "png") {
+        echo "Chỉ chấp nhận các định dạng JPG, JPEG, PNG.";
+        $uploadOk = 0;
+    }
+
+    // Nếu không có lỗi, tiến hành tải lên và cập nhật đường dẫn trong CSDL
+    if ($uploadOk == 1) {
+        if (move_uploaded_file($_FILES["profile_image"]["tmp_name"], $target_file)) {
+            // Lưu đường dẫn ảnh vào CSDL
+            $email = $_SESSION['email'];
+            $update_query = "UPDATE user SET profile_image=? WHERE email=?";
+            // Kết nối CSDL
+            $conn = new mysqli("localhost", "root", "", "shoe");
+            if ($conn->connect_error) {
+                die("Kết nối thất bại: " . $conn->connect_error);
+            }
+            // Sử dụng prepared statement để tránh SQL injection
+            $stmt = $conn->prepare($update_query);
+            $stmt->bind_param("ss", $target_file, $email);
+
+            if ($stmt->execute()) {
+                // Cập nhật thành công, cập nhật session 'profile_image'
+                $_SESSION['profile_image'] = $target_file;
+                echo "Ảnh đã được tải lên và cập nhật.";
+            } else {
+                echo "Có lỗi xảy ra khi lưu đường dẫn ảnh vào CSDL.";
+            }
+            $stmt->close();
+            $conn->close();
+        } else {
+            echo "Có lỗi xảy ra khi tải ảnh lên.";
+        }
+    }
+}
+?>
