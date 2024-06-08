@@ -7,17 +7,10 @@ $name = isset($_SESSION['fullname']) ? htmlspecialchars($_SESSION['fullname']) :
 $phoneNumber = isset($_SESSION['sdt']) ? htmlspecialchars($_SESSION['sdt']) : "";
 $diachi = isset($_SESSION['diachi']) ? htmlspecialchars($_SESSION['diachi']) : "";
 $email = isset($_SESSION['email']) ? htmlspecialchars($_SESSION['email']) : "";
-$selectedProducts = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
-// Kiểm tra nếu giỏ hàng không tồn tại hoặc rỗng
-if (empty($selectedProducts)) {
-    echo "Giỏ hàng của bạn hiện đang trống.";
-    exit();
-}
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-   if (isset($_POST['selected_products']) && is_string($_POST['selected_products'])) {
+$products_to_checkout = array();
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['selected_products'])) {
     $selected_products = json_decode($_POST['selected_products'], true);
-    $products_to_checkout = array();
 
     foreach ($selected_products as $key) {
         if (isset($_SESSION['selected_products'][$key])) {
@@ -25,91 +18,79 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
 
-        // Thực hiện xử lý thanh toán với $products_to_checkout
-        // ...
+    // Tính tổng tiền
+    $totalPrice = 0;
+    foreach ($products_to_checkout as $product) {
+        $totalPrice += $product['Gia'] * $product['SoLuong'];
+    }
+
+    // Tính phí vận chuyển dựa trên tổng tiền
+    if ($totalPrice < 1000) {
+        $shippingFee = 30;
+    } elseif ($totalPrice < 5000) {
+        $shippingFee = 50;
+    } elseif ($totalPrice < 10000) {
+        $shippingFee = 70;
     } else {
-        echo "Không có sản phẩm nào được chọn để thanh toán hoặc dữ liệu không hợp lệ.";
-    }
-} else {
-    echo "Phương thức không hợp lệ.";
-}
-$totalPrice = 0;
-foreach ($products_to_checkout as $product) {
-    $totalPrice += $product['Gia'] * $product['SoLuong'];
-}
-
-
-// Tính phí vận chuyển dựa trên tổng tiền
-if ($totalPrice < 1000) {
-    $shippingFee = 30;
-} elseif ($totalPrice < 5000) {
-    $shippingFee = 50;
-} elseif ($totalPrice < 10000) {
-    $shippingFee = 70;
-} else {
-    $shippingFee = 100;
-}
-
-
-// Xử lý đặt hàng khi nhấn nút "Đặt hàng"
-$error_message = "";
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['place_order'])) {
-
-    if (empty($email)) {
-        // Xử lý theo nhu cầu của bạn khi không có email trong session
-        // Ví dụ: chuyển hướng người dùng đến trang đăng nhập hoặc yêu cầu họ cung cấp email
-        // Ví dụ: header("Location: login.php");
-        // Ví dụ: exit();
+        $shippingFee = 100;
     }
 
-    // Bắt đầu giao dịch
-    $conn->begin_transaction();
+    // Xử lý đặt hàng khi nhấn nút "Đặt hàng"
+    $error_message = "";
+    if (isset($_POST['place_order'])) {
+        if (empty($email)) {
+            // Xử lý khi không có email trong session
+            // Ví dụ: header("Location: login.php");
+            // exit();
+        }
 
-    // Thêm dữ liệu vào bảng donhang
-    $thoiGianDatHang = date("Y-m-d H:i:s");
-    $trangThai = "Đã đặt hàng";
-    $sqlDonHang = $conn->prepare("INSERT INTO donhang (HoVaTen, Email, Sdt, DiaChi, ThoiGianDatHang, TrangThai) VALUES (?, ?, ?, ?, ?, ?)");
-    $sqlDonHang->bind_param("ssssss", $name, $email, $phoneNumber, $diachi, $thoiGianDatHang, $trangThai);
+        // Bắt đầu giao dịch
+        $conn->begin_transaction();
 
-    if ($sqlDonHang->execute()) {
-        $orderID = $conn->insert_id;
+        // Thêm dữ liệu vào bảng donhang
+        $thoiGianDatHang = date("Y-m-d H:i:s");
+        $trangThai = "Đã đặt hàng";
+        $sqlDonHang = $conn->prepare("INSERT INTO donhang (HoVaTen, Email, Sdt, DiaChi, ThoiGianDatHang, TrangThai) VALUES (?, ?, ?, ?, ?, ?)");
+        $sqlDonHang->bind_param("ssssss", $name, $email, $phoneNumber, $diachi, $thoiGianDatHang, $trangThai);
 
-        // Thêm dữ liệu vào bảng chitietdonhang
-        $sqlChiTietDonHang = $conn->prepare("INSERT INTO chitietdonhang (MaDonHang, MaSanPham, HinhAnh, TenSanPham, Gia, Size, SoLuong, Tong) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-        $sqlChiTietDonHang->bind_param("iisssdii", $orderID, $maSanPham, $hinhanh, $tenSanPham, $gia, $size, $soLuong, $tong);
+        if ($sqlDonHang->execute()) {
+            $orderID = $conn->insert_id;
 
-        foreach ($selectedProducts as $product) {
-            $maSanPham = $product['MaSanPham'];
-            $tenSanPham = $product['TenSanPham'];
-            $gia = $product['Gia'];
-            $soLuong = $product['SoLuong'];
-            $tong = $gia * $soLuong;
-            $hinhanh = $product['HinhAnh'];
-            $size = $product['Size'];
+            // Thêm dữ liệu vào bảng chitietdonhang
+            $sqlChiTietDonHang = $conn->prepare("INSERT INTO chitietdonhang (MaDonHang, MaSanPham, HinhAnh, TenSanPham, Gia, Size, SoLuong, Tong) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $sqlChiTietDonHang->bind_param("iisssdii", $orderID, $maSanPham, $hinhanh, $tenSanPham, $gia, $size, $soLuong, $tong);
 
-            if (!$sqlChiTietDonHang->execute()) {
-                $error_message .= "Lỗi khi thêm chi tiết đơn hàng cho sản phẩm {$maSanPham}: " . $conn->error . "<br>";
+            foreach ($products_to_checkout as $product) {
+                $maSanPham = $product['MaSanPham'];
+                $tenSanPham = $product['TenSanPham'];
+                $gia = $product['Gia'] ;
+                $soLuong = $product['SoLuong'];
+                $tong = $gia * $soLuong;
+                $hinhanh = $product['HinhAnh'];
+                $size = $product['Size'];
+
+                if (!$sqlChiTietDonHang->execute()) {
+                    $error_message .= "Lỗi khi thêm chi tiết đơn hàng cho sản phẩm {$maSanPham}: " . $conn->error . "<br>";
+                }
             }
+
+            if (empty($error_message)) {
+                // Commit giao dịch nếu không có lỗi
+                $conn->commit();
+                echo "<script>alert('Đặt hàng thành công!'); window.location.href='nguoidung.php';</script>";
+            }
+        } else {
+            $error_message = "Lỗi khi thêm đơn hàng: " . $conn->error;
         }
 
-        if (empty($error_message)) {
-            // Commit giao dịch nếu không có lỗi
-            $conn->commit();
-            echo "<script>alert('Đặt hàng thành công!'); window.location.href='nguoidung.php';</script>";
+        // Rollback nếu có lỗi xảy ra
+        if (!empty($error_message)) {
+            $conn->rollback();
+            echo $error_message;
         }
-    } else {
-        $error_message = "Lỗi khi thêm đơn hàng: " . $conn->error;
-    }
-
-    // Rollback nếu có lỗi xảy ra
-    if (!empty($error_message)) {
-        $conn->rollback();
-        echo $error_message;
     }
 }
-
 ?>
-
 
 <!DOCTYPE html>
 <html lang="vi">
@@ -199,13 +180,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['place_order'])) {
                     <div class="content-phuongthucthanhtoan"> 
                         <div class="title-phuongthucthanhtoan"><p>Phương thức thanh toán</p></div>
                         <div class="radio-phuongthucthanhtoan">
-                                <?php
-                                foreach ($products_to_checkout as $produc) {
-                                    echo "<input type='hidden' name='selected_products[]' value='" . htmlspecialchars($product['MaSanPham'], ENT_QUOTES, 'UTF-8') . "'>";
-                                }
-                                ?>
+                            <form id="paymentForm" action="" method="POST">
+                                <input type='hidden' name='selected_products' value='<?php echo htmlspecialchars(json_encode(array_keys($products_to_checkout)), ENT_QUOTES, 'UTF-8'); ?>'>
                                 <input class="inp" name="payment_method" type="radio" value="COD" checked/><span>Thanh toán khi nhận hàng</span>
-                                <input class="inp" name="payment_method" type="radio" value="Other"/><span>Khác</span> 
+                                <input class="inp" name="payment_method" type="radio" value="Other"/><span>Khác</span>
                         </div>
                     </div>
                 </div>
@@ -232,10 +210,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['place_order'])) {
                                 Nhấn "Đặt hàng" đồng nghĩa với việc bạn đồng ý với điều khoản của Shop
                             </div>
                         </div>
-                        <!-- Form submission to processing page -->
-                        <form id="paymentForm" action="" method="POST">
-                            <button class="btn-dathang" type="submit" name="place_order">Đặt hàng</button>
-                        </form>
+                        <button class="btn-dathang" type="submit" name="place_order">Đặt hàng</button>
+                            </form>
                     </div>
                 </div>
             </div>
@@ -248,6 +224,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['place_order'])) {
         // Chuyển hướng người dùng đến trang cập nhật thông tin
         window.location.href = "edit_thanhtoan.php";
     });
-</script>
+    </script>
 </body>
 </html>
